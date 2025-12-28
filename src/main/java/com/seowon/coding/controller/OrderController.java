@@ -1,26 +1,29 @@
 package com.seowon.coding.controller;
 
+import com.seowon.coding.domain.dto.RequestDTO;
 import com.seowon.coding.domain.model.Order;
 import com.seowon.coding.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 public class OrderController {
-    
+
     private final OrderService orderService;
-    
+
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
-    
+
     @GetMapping("/{id}")
     public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
         return orderService.getOrderById(id)
@@ -37,7 +40,7 @@ public class OrderController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
         try {
@@ -47,7 +50,7 @@ public class OrderController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * TODO #2: 주문을 생성하는 API 구현
      * 구현목록:
@@ -55,16 +58,34 @@ public class OrderController {
      * 2. orderService.placeOrder 호출
      * 3. 주문 생성시 HTTP 201 CREATED 반환
      * 4. 필요한 DTO 생성
-     * 
+     * <p>
      * Request body 예시:
      * {
-     *   "customerName": "John Doe",
-     *   "customerEmail": "john@example.com",
-     *   "products": [
-     *     {"productId": 1, "quantity": 2},
-     *     {"productId": 3, "quantity": 1}
-     *   ]
+     * "customerName": "John Doe",
+     * "customerEmail": "john@example.com",
+     * "products": [
+     * {"productId": 1, "quantity": 2},
+     * {"productId": 3, "quantity": 1}
+     * ]
      * }
      */
     //
+    @PostMapping()
+    public ResponseEntity<Order> createOrder(@RequestBody RequestDTO  requestDTO) {
+
+        // 1. productsId와 quantity담을 리스트 생성
+        List<Long> ids = new ArrayList<>();
+        List<Integer> qtys = new ArrayList<>();
+
+        // 2. 리스트에 id랑 수량 넣어줌
+        for (RequestDTO.ProductDTO p : requestDTO.getProducts()) {
+            ids.add(p.getProductId());
+            qtys.add(p.getQuantity());
+        }
+
+        // 3. 주문 생성 완성.
+        Order order = orderService.placeOrder(requestDTO.getCustomerName(), requestDTO.getCustomerEmail(), ids, qtys);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(order);
+    }
 }
