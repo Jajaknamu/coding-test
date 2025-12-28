@@ -49,9 +49,8 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<Product> findProductsByCategory(String category) {
-        // TODO #1: 구현 항목
         // Repository를 사용하여 category 로 찾을 제품목록 제공
-        return List.of();
+        return productRepository.findByCategory(category);
     }
 
     /**
