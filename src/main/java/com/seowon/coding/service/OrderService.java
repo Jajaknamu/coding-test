@@ -55,8 +55,8 @@ public class OrderService {
 
 
 
+    @Transactional
     public Order placeOrder(String customerName, String customerEmail, List<Long> productIds, List<Integer> quantities) {
-        // TODO #3: 구현 항목
         // * 주어진 고객 정보로 새 Order를 생성
         // * 지정된 Product를 주문에 추가
         // * order 의 상태를 PENDING 으로 변경
@@ -64,7 +64,43 @@ public class OrderService {
         // * order 를 저장
         // * 각 Product 의 재고를 수정
         // * placeOrder 메소드의 시그니처는 변경하지 않은 채 구현하세요.
-        return null;
+
+        //product의 id랑 수량을 저장할 list 필요
+        List <OrderItem> orderItems = new ArrayList<>();
+
+        for (int i=0;i<productIds.size();i++) {
+            Long pid = productIds.get(i);
+            Integer qty = quantities.get(i);
+
+            //엔티티에 pid의 진짜 상품id를 꺼내옴.
+            Product product = productRepository.findById(pid)
+                    .orElseThrow(() -> new RuntimeException("맞는 상품id가 없음" + pid));
+
+            //엔티티에 있는 재고랑 주문한 재고 차감해서 재고수량 맞추기
+            product.setStockQuantity(product.getStockQuantity() - qty);
+
+            //영수증에 넣을 상품id랑 수량임 -> 영수증 객체 1개 완성임
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProduct(product);
+            orderItem.setQuantity(qty);
+
+            /* builder 사용하면 이런식 위에 set 코드랑 같은 결과임
+            OrderItem item = OrderItem.builder()
+                    .product(product)
+                    .quantity(qty)
+                    .build();*/
+
+            //이 영수증들을 orderItems라는 list에 넣어줘서 여러개의 영수증을 저장하는거
+            orderItems.add(orderItem);
+        }
+        Order order = Order.builder()
+                .customerEmail(customerEmail)
+                .customerName(customerName)
+                .orderDate(LocalDateTime.now())
+                .status(Order.OrderStatus.PENDING)
+                .items(orderItems)
+                .build();
+        return orderRepository.save(order);
     }
 
     /**
