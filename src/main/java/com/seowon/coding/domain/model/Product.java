@@ -40,14 +40,16 @@ public class Product {
     public boolean isInStock() {
         return stockQuantity > 0;
     }
-    
+
+    //재고 차감
     public void decreaseStock(int quantity) {
         if (quantity > stockQuantity) {
             throw new IllegalArgumentException("Not enough stock available");
         }
         stockQuantity -= quantity;
     }
-    
+
+    //재고 확인(db에 들어있는 재고)
     public void increaseStock(int quantity) {
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be positive");

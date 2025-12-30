@@ -128,20 +128,29 @@ public class OrderService {
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
-
         BigDecimal subtotal = BigDecimal.ZERO;
+
         for (OrderProduct req : orderProducts) {
             Long pid = req.getProductId();
             int qty = req.getQuantity();
 
+
+            //1. 상품 id로 db에 있는 상품을 찾아옴
             Product product = productRepository.findById(pid)
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + pid));
+
+            OrderItem item = OrderItem.createOrderItem(order, product, qty);
+
+            order.addItem(item); //
+            /* 위에 코드로 리팩토링함
             if (qty <= 0) {
                 throw new IllegalArgumentException("quantity must be positive: " + qty);
             }
+
             if (product.getStockQuantity() < qty) {
                 throw new IllegalStateException("insufficient stock for product " + pid);
             }
+
 
             OrderItem item = OrderItem.builder()
                     .order(order)
@@ -150,15 +159,17 @@ public class OrderService {
                     .price(product.getPrice())
                     .build();
             order.getItems().add(item);
-
-            product.decreaseStock(qty);
-            subtotal = subtotal.add(product.getPrice().multiply(BigDecimal.valueOf(qty)));
+            product.decreaseStock(qty); //db에 재고 차감
+             subtotal = subtotal.add(product.getPrice().multiply(BigDecimal.valueOf(qty))); // 총 주믄 금액
+            */
         }
 
-        BigDecimal shipping = subtotal.compareTo(new BigDecimal("100.00")) >= 0 ? BigDecimal.ZERO : new BigDecimal("5.00");
+        BigDecimal currentTotal = order.getTotalAmount();
+
+        BigDecimal shipping = currentTotal.compareTo(new BigDecimal("100.00")) >= 0 ? BigDecimal.ZERO : new BigDecimal("5.00");
         BigDecimal discount = (couponCode != null && couponCode.startsWith("SALE")) ? new BigDecimal("10.00") : BigDecimal.ZERO;
 
-        order.setTotalAmount(subtotal.add(shipping).subtract(discount));
+        order.setTotalAmount(currentTotal.add(shipping).subtract(discount));
         order.setStatus(Order.OrderStatus.PROCESSING);
         return orderRepository.save(order);
     }
