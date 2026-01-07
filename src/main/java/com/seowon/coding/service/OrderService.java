@@ -8,6 +8,7 @@ import com.seowon.coding.domain.repository.OrderRepository;
 import com.seowon.coding.domain.repository.ProcessingStatusRepository;
 import com.seowon.coding.domain.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -182,24 +184,29 @@ public class OrderService {
      */
     @Transactional
     public void bulkShipOrdersParent(String jobId, List<Long> orderIds) {
+        ///현재 작업중인 id를 불러와서 존재하다면 작업상태에 저장함. 만약 없다면 그 jobid값 저장해줌
         ProcessingStatus ps = processingStatusRepository.findByJobId(jobId)
                 .orElseGet(() -> processingStatusRepository.save(ProcessingStatus.builder().jobId(jobId).build()));
-        ps.markRunning(orderIds == null ? 0 : orderIds.size());
-        processingStatusRepository.save(ps);
+        ps.markRunning(orderIds == null ? 0 : orderIds.size()); ///orderIds의 값이 null이면 0을 넣어주고, 아니라면 사이즈값 넣어주라는거임.
+        processingStatusRepository.save(ps); ///마지막으로 작업상태 저장해줌.
 
+        /// 이 중간 저장 로직은 따로 메서드로 빼는게 나을거같음. 하나의 작업으로 묶어버리면 중간 내용은 커밋될때까지 확인할수없음.
         int processed = 0;
-        for (Long orderId : (orderIds == null ? List.<Long>of() : orderIds)) {
+        /// 이미 위에서 orderIds 검증해줬음 중복임.
+        for (Long orderId : (orderIds == null ? List.<Long>of() : orderIds)) { ///주문수 만큼 작업된량을 저장해줌.상태도 바꿔가면서
             try {
                 // 오래 걸리는 작업 이라는 가정 시뮬레이션 (예: 외부 시스템 연동, 대용량 계산 등)
-                orderRepository.findById(orderId).ifPresent(o -> o.setStatus(Order.OrderStatus.PROCESSING));
+                orderRepository.findById(orderId).ifPresent(o -> o.setStatus(Order.OrderStatus.PROCESSING)); ///N+1문제 발생 너무 많은 쿼리 생김.
                 // 중간 진행률 저장
-                this.updateProgressRequiresNew(jobId, ++processed, orderIds.size());
+                this.updateProgressRequiresNew(jobId, ++processed, orderIds.size());///이부분은 중간 저장인 안됨. this로 이 무슨 같은 클래스내에 메서드를 부르면 일단 스프링 프록시가 작동을 안함.결국 중간 저장은 안된다는소리
             } catch (Exception e) {
+                /// 로그 냠겨야 하는데 뭘 남겨야할지 모르겠음.
+                log.error("주문 처리 실패. orderId={}, error={}", orderId,e.getMessage());
             }
         }
-        ps = processingStatusRepository.findByJobId(jobId).orElse(ps);
-        ps.markCompleted();
-        processingStatusRepository.save(ps);
+        ps = processingStatusRepository.findByJobId(jobId).orElse(ps); ///변경된 작업 저장 새로해줌
+        ps.markCompleted(); ///완료된 작업으로 분류하고
+        processingStatusRepository.save(ps); ///저장해줌
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
